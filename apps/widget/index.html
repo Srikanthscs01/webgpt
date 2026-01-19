@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebGPT Widget Dev</title>
+  </head>
+  <body>
+    <div style="padding: 40px; font-family: system-ui; max-width: 600px;">
+      <h1>🤖 WebGPT Widget</h1>
+      <p>The chatbot widget should appear in the <strong>bottom-right corner</strong>.</p>
+      
+      <h3>Available Sites:</h3>
+      <ul>
+        <li><a href="?siteKey=ezypharma-pos"><strong>EzyPharma POS</strong></a> - Pharmacy Management System</li>
+        <li><a href="?siteKey=test-site-key">WebGPT Demo</a> - Documentation</li>
+      </ul>
+      
+      <h3>Try Asking:</h3>
+      <ul>
+        <li>"How do I manage inventory?"</li>
+        <li>"What reports are available?"</li>
+        <li>"How do I process a sale?"</li>
+        <li>"How does prescription management work?"</li>
+      </ul>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Initialize widget - check URL params for siteKey or use default
+      window.addEventListener('load', () => {
+        if (window.WebGPT) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const siteKey = urlParams.get('siteKey') || 'ezypharma-pos';
+          
+          console.log('Initializing WebGPT with siteKey:', siteKey);
+          
+          window.WebGPT.init({
+            siteKey: siteKey,
+            apiUrl: 'http://localhost:4000/api/v1'
+          });
+        }
+      });
+    </script>
+  </body>
+</html>
+
+
+

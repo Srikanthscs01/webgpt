@@ -1,0 +1,419 @@
+// =============================================================================
+// WebGPT Prisma Schema
+// =============================================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector, pg_trgm]
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum SiteStatus {
+  NEW
+  CRAWLING
+  READY
+  ERROR
+  PAUSED
+}
+
+enum PageStatus {
+  NEW
+  FETCHED
+  EMBEDDED
+  ERROR
+  SKIPPED
+}
+
+enum CrawlRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// -----------------------------------------------------------------------------
+// Workspace (Tenant)
+// -----------------------------------------------------------------------------
+
+model Workspace {
+  id        String   @id @default(uuid())
+  name      String
+  plan      Plan     @default(FREE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users         User[]
+  apiKeys       ApiKey[]
+  sites         Site[]
+  pages         Page[]
+  chunks        Chunk[]
+  crawlRuns     CrawlRun[]
+  conversations Conversation[]
+  messages      Message[]
+  feedback      Feedback[]
+  widgetConfigs WidgetConfig[]
+  auditLogs     AuditLog[]
+  usageRecords  UsageRecord[]
+
+  @@index([plan])
+  @@map("workspaces")
+}
+
+// -----------------------------------------------------------------------------
+// User
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid())
+  workspaceId  String
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         UserRole  @default(MEMBER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+
+  // Relations
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  auditLogs AuditLog[]
+
+  @@index([workspaceId])
+  @@index([email])
+  @@map("users")
+}
+
+// -----------------------------------------------------------------------------
+// API Key
+// -----------------------------------------------------------------------------
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  prefix      String    @unique
+  hashedKey   String    @unique
+  scopes      String[]
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([prefix])
+  @@index([hashedKey])
+  @@map("api_keys")
+}
+
+// -----------------------------------------------------------------------------
+// Site
+// -----------------------------------------------------------------------------
+
+model Site {
+  id            String     @id @default(uuid())
+  workspaceId   String
+  name          String
+  domain        String
+  baseUrl       String
+  siteKey       String     @unique
+  status        SiteStatus @default(NEW)
+  crawlConfig   Json       @default("{}")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  lastCrawledAt DateTime?
+
+  // Relations
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  pages         Page[]
+  chunks        Chunk[]
+  crawlRuns     CrawlRun[]
+  conversations Conversation[]
+  feedback      Feedback[]
+  widgetConfig  WidgetConfig?
+  usageRecords  UsageRecord[]
+
+  @@unique([workspaceId, domain])
+  @@index([workspaceId])
+  @@index([siteKey])
+  @@index([status])
+  @@map("sites")
+}
+
+// -----------------------------------------------------------------------------
+// Page
+// -----------------------------------------------------------------------------
+
+model Page {
+  id            String     @id @default(uuid())
+  workspaceId   String
+  siteId        String
+  url           String
+  title         String?
+  contentHash   String?
+  rawContent    String?
+  status        PageStatus @default(NEW)
+  httpStatus    Int?
+  mimeType      String?
+  lastCrawledAt DateTime?
+  error         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  chunks    Chunk[]
+
+  @@unique([siteId, url])
+  @@index([workspaceId])
+  @@index([siteId])
+  @@index([status])
+  @@index([contentHash])
+  @@map("pages")
+}
+
+// -----------------------------------------------------------------------------
+// Chunk (with vector embedding)
+// -----------------------------------------------------------------------------
+
+model Chunk {
+  id          String                    @id @default(uuid())
+  workspaceId String
+  siteId      String
+  pageId      String
+  url         String
+  title       String?
+  content     String
+  tokenCount  Int
+  headingPath String?
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime                  @default(now())
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  page      Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([siteId])
+  @@index([pageId])
+  @@map("chunks")
+}
+
+// -----------------------------------------------------------------------------
+// Crawl Run
+// -----------------------------------------------------------------------------
+
+model CrawlRun {
+  id             String         @id @default(uuid())
+  workspaceId    String
+  siteId         String
+  status         CrawlRunStatus @default(QUEUED)
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  pagesDiscovered Int           @default(0)
+  pagesFetched   Int            @default(0)
+  pagesEmbedded  Int            @default(0)
+  pagesErrored   Int            @default(0)
+  errorSummary   String?
+  createdAt      DateTime       @default(now())
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([siteId])
+  @@index([status])
+  @@map("crawl_runs")
+}
+
+// -----------------------------------------------------------------------------
+// Conversation
+// -----------------------------------------------------------------------------
+
+model Conversation {
+  id          String   @id @default(uuid())
+  workspaceId String
+  siteId      String
+  visitorId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site      Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  feedback  Feedback[]
+
+  @@index([workspaceId])
+  @@index([siteId])
+  @@index([visitorId])
+  @@map("conversations")
+}
+
+// -----------------------------------------------------------------------------
+// Message
+// -----------------------------------------------------------------------------
+
+model Message {
+  id             String      @id @default(uuid())
+  workspaceId    String
+  conversationId String
+  role           MessageRole
+  content        String
+  citations      Json        @default("[]")
+  promptTokens   Int         @default(0)
+  completionTokens Int       @default(0)
+  createdAt      DateTime    @default(now())
+
+  // Relations
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback     Feedback[]
+
+  @@index([workspaceId])
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// -----------------------------------------------------------------------------
+// Feedback
+// -----------------------------------------------------------------------------
+
+model Feedback {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  siteId         String
+  conversationId String
+  messageId      String
+  rating         Int
+  comment        String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  workspace    Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([siteId])
+  @@index([conversationId])
+  @@index([rating])
+  @@map("feedback")
+}
+
+// -----------------------------------------------------------------------------
+// Widget Config
+// -----------------------------------------------------------------------------
+
+model WidgetConfig {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  siteId         String   @unique
+  theme          Json     @default("{\"primaryColor\":\"#3B82F6\",\"backgroundColor\":\"#FFFFFF\",\"textColor\":\"#1F2937\",\"borderRadius\":12,\"position\":\"bottom-right\",\"offsetX\":20,\"offsetY\":20}")
+  greeting       String   @default("Hi! How can I help you today?")
+  placeholder    String   @default("Type your message...")
+  brandName      String?
+  allowedDomains String[] @default([])
+  rateLimit      Json     @default("{\"rpm\":60,\"burst\":10}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("widget_configs")
+}
+
+// -----------------------------------------------------------------------------
+// Audit Log
+// -----------------------------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  workspaceId String
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  meta        Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor     User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([targetType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// -----------------------------------------------------------------------------
+// Usage Record
+// -----------------------------------------------------------------------------
+
+model UsageRecord {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  siteId           String?
+  date             DateTime @db.Date
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  embeddingTokens  Int      @default(0)
+  chatRequests     Int      @default(0)
+  crawlPages       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  site      Site?     @relation(fields: [siteId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, siteId, date])
+  @@index([workspaceId])
+  @@index([date])
+  @@map("usage_records")
+}
+
+
+
