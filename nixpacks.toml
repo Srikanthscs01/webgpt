@@ -1,0 +1,21 @@
+[phases.setup]
+nixPkgs = ["nodejs_20", "pnpm", "openssl"]
+
+[phases.install]
+cmds = [
+  "pnpm install"
+]
+
+[phases.build]
+cmds = [
+  "cd apps/api && npx prisma generate",
+  "pnpm --filter @webgpt/shared build || true",
+  "pnpm --filter @webgpt/api build"
+]
+
+[start]
+cmd = "cd apps/api && node dist/main.js"
+
+[variables]
+NODE_ENV = "production"
+

@@ -1,10 +1,9 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "apps/api/Dockerfile"
+builder = "nixpacks"
 
 [deploy]
 healthcheckPath = "/api/v1/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 300
+startCommand = "cd apps/api && npx prisma migrate deploy && node dist/main.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-
