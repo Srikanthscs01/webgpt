@@ -1,19 +1,12 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: {
-    index: 'src/index.ts',
-    'types/index': 'src/types/index.ts',
-    'validators/index': 'src/validators/index.ts',
-    'utils/index': 'src/utils/index.ts',
-  },
+  entry: ['src/index.ts'],
   format: ['cjs', 'esm'],
-  dts: true,
+  dts: false,  // Disable DTS to avoid build issues
   splitting: false,
-  sourcemap: true,
+  sourcemap: false,
   clean: true,
   treeshake: true,
+  outDir: 'dist',
 });
-
-
-

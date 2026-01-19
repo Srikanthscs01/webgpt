@@ -5,27 +5,17 @@
   "description": "Shared types, DTOs, validators, and utilities for WebGPT",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./src/index.ts"
     },
-    "./types": {
-      "import": "./dist/types/index.mjs",
-      "require": "./dist/types/index.js",
-      "types": "./dist/types/index.d.ts"
-    },
-    "./validators": {
-      "import": "./dist/validators/index.mjs",
-      "require": "./dist/validators/index.js",
-      "types": "./dist/validators/index.d.ts"
-    },
-    "./utils": {
-      "import": "./dist/utils/index.mjs",
-      "require": "./dist/utils/index.js",
-      "types": "./dist/utils/index.d.ts"
+    "./*": {
+      "import": "./dist/*.mjs",
+      "require": "./dist/*.js",
+      "types": "./src/*"
     }
   },
   "scripts": {
@@ -50,6 +40,3 @@
     "vitest": "^1.2.0"
   }
 }
-
-
-

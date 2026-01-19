@@ -1,21 +1,21 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "pnpm", "openssl"]
+nixPkgs = ["nodejs_20", "openssl"]
 
 [phases.install]
 cmds = [
-  "pnpm install"
+  "npm install -g pnpm",
+  "pnpm install --no-frozen-lockfile"
 ]
 
 [phases.build]
 cmds = [
   "cd apps/api && npx prisma generate",
-  "pnpm --filter @webgpt/shared build || true",
-  "pnpm --filter @webgpt/api build"
+  "cd packages/shared && pnpm build || echo 'Shared build skipped'",
+  "cd apps/api && pnpm build"
 ]
 
 [start]
-cmd = "cd apps/api && node dist/main.js"
+cmd = "cd apps/api && npx prisma migrate deploy --skip-seed && node dist/main.js"
 
 [variables]
 NODE_ENV = "production"
-
