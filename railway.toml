@@ -1,9 +1,10 @@
 [build]
 builder = "nixpacks"
+buildCommand = "npm install -g pnpm && pnpm install --no-frozen-lockfile && cd apps/api && npx prisma generate && pnpm build"
 
 [deploy]
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 300
-startCommand = "cd apps/api && npx prisma migrate deploy && node dist/main.js"
+startCommand = "cd apps/api && npx prisma migrate deploy --skip-seed && node dist/main.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
