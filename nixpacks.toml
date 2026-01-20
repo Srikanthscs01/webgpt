@@ -3,15 +3,15 @@ nixPkgs = ["nodejs_20", "openssl"]
 
 [phases.install]
 cmds = [
-  "npm install -g pnpm",
+  "npm install -g pnpm @nestjs/cli",
   "pnpm install --no-frozen-lockfile"
 ]
 
 [phases.build]
 cmds = [
+  "cd packages/shared && pnpm build || echo 'Shared build skipped'",
   "cd apps/api && npx prisma generate",
-  "cd apps/api && npx tsc --skipLibCheck || echo 'TypeScript warnings ignored'",
-  "cd apps/api && pnpm build || (npm install -g @nestjs/cli && nest build)"
+  "cd apps/api && nest build"
 ]
 
 [start]

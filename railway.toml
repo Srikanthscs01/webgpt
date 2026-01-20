@@ -1,6 +1,5 @@
 [build]
 builder = "nixpacks"
-buildCommand = "npm install -g pnpm && pnpm install --no-frozen-lockfile && cd apps/api && npx prisma generate && pnpm build"
 
 [deploy]
 healthcheckPath = "/api/v1/health"
